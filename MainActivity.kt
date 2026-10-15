@@ -58,34 +58,91 @@ import java.util.Locale
 
 class LogoView(c: Context) : View(c) {
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
-    init { setLayerType(LAYER_TYPE_SOFTWARE, null) }
     override fun onDraw(canvas: Canvas) {
         val w = width.toFloat()
-        val pad = w * 0.1f
-        val r = RectF(pad, pad, w - pad, w - pad)
+        val rad = w * 0.2f
+        // 3D নিচের কিনারা
         p.style = Paint.Style.FILL
-        p.shader = LinearGradient(r.left, r.top, r.right, r.bottom,
-            intArrayOf(Color.rgb(139, 92, 246), Color.rgb(24, 160, 255)), null, Shader.TileMode.CLAMP)
-        p.setShadowLayer(w * 0.09f, 0f, w * 0.03f, Color.argb(200, 24, 217, 255))
-        canvas.drawRoundRect(r, w * 0.24f, w * 0.24f, p)
-        p.clearShadowLayer()
         p.shader = null
-        p.color = Color.rgb(9, 14, 44)
-        canvas.drawRoundRect(RectF(w * 0.22f, w * 0.22f, w * 0.78f, w * 0.78f), w * 0.16f, w * 0.16f, p)
-        val path = Path().apply {
-            moveTo(w * 0.42f, w * 0.36f); lineTo(w * 0.66f, w * 0.5f); lineTo(w * 0.42f, w * 0.64f); close()
-        }
-        p.shader = LinearGradient(w * 0.4f, w * 0.36f, w * 0.66f, w * 0.64f, Color.WHITE, Color.rgb(24, 217, 255), Shader.TileMode.CLAMP)
-        canvas.drawPath(path, p)
+        p.color = Color.rgb(72, 42, 150)
+        canvas.drawRoundRect(RectF(w * 0.06f, w * 0.11f, w * 0.94f, w * 0.99f), rad, rad, p)
+        // মূল বক্স
+        val face = RectF(w * 0.06f, w * 0.06f, w * 0.94f, w * 0.94f)
+        p.shader = LinearGradient(0f, face.top, 0f, face.bottom,
+            Color.rgb(150, 118, 245), Color.rgb(104, 66, 214), Shader.TileMode.CLAMP)
+        canvas.drawRoundRect(face, rad, rad, p)
         p.shader = null
-        val b = RectF(w * 0.66f, 0f, w * 0.98f, w * 0.26f)
-        p.color = Color.rgb(139, 92, 246)
-        canvas.drawRoundRect(b, w * 0.07f, w * 0.07f, p)
+        // সাদা আউটলাইন প্লে আইকন
+        p.style = Paint.Style.STROKE
         p.color = Color.WHITE
-        p.textSize = w * 0.16f
+        p.strokeWidth = w * 0.05f
+        p.strokeJoin = Paint.Join.ROUND
+        p.strokeCap = Paint.Cap.ROUND
+        val path = Path().apply {
+            moveTo(w * 0.41f, w * 0.31f); lineTo(w * 0.69f, w * 0.5f); lineTo(w * 0.41f, w * 0.69f); close()
+        }
+        canvas.drawPath(path, p)
+        // AI ব্যাজ
+        p.style = Paint.Style.FILL
+        val b = RectF(w * 0.67f, 0f, w * 0.99f, w * 0.27f)
+        p.color = Color.rgb(160, 126, 250)
+        canvas.drawRoundRect(b, w * 0.08f, w * 0.08f, p)
+        p.color = Color.WHITE
+        p.textSize = w * 0.15f
         p.textAlign = Paint.Align.CENTER
         p.typeface = Typeface.DEFAULT_BOLD
-        canvas.drawText("AI", b.centerX(), b.centerY() + w * 0.055f, p)
+        canvas.drawText("AI", b.centerX(), b.centerY() + w * 0.052f, p)
+    }
+}
+
+/** লাইন আইকন: 0=ডাউনলোড 1=সার্চ 2=প্লে 3=সেটিংস 4=মাইক */
+class IconView(c: Context, private val kind: Int) : View(c) {
+    private val p = Paint(Paint.ANTI_ALIAS_FLAG)
+    var tint: Int = Color.WHITE
+        set(v) { field = v; invalidate() }
+    override fun onDraw(canvas: Canvas) {
+        val s = minOf(width, height).toFloat()
+        canvas.translate((width - s) / 2f, (height - s) / 2f)
+        p.style = Paint.Style.STROKE
+        p.color = tint
+        p.strokeWidth = s * 0.085f
+        p.strokeCap = Paint.Cap.ROUND
+        p.strokeJoin = Paint.Join.ROUND
+        when (kind) {
+            0 -> {
+                canvas.drawLine(s * 0.5f, s * 0.12f, s * 0.5f, s * 0.62f, p)
+                val a = Path()
+                a.moveTo(s * 0.3f, s * 0.44f); a.lineTo(s * 0.5f, s * 0.64f); a.lineTo(s * 0.7f, s * 0.44f)
+                canvas.drawPath(a, p)
+                val t = Path()
+                t.moveTo(s * 0.14f, s * 0.66f); t.lineTo(s * 0.14f, s * 0.86f); t.lineTo(s * 0.86f, s * 0.86f); t.lineTo(s * 0.86f, s * 0.66f)
+                canvas.drawPath(t, p)
+            }
+            1 -> {
+                canvas.drawCircle(s * 0.44f, s * 0.44f, s * 0.28f, p)
+                canvas.drawLine(s * 0.65f, s * 0.65f, s * 0.88f, s * 0.88f, p)
+            }
+            2 -> {
+                val a = Path()
+                a.moveTo(s * 0.28f, s * 0.16f); a.lineTo(s * 0.82f, s * 0.5f); a.lineTo(s * 0.28f, s * 0.84f); a.close()
+                canvas.drawPath(a, p)
+            }
+            3 -> {
+                canvas.drawCircle(s / 2f, s / 2f, s * 0.15f, p)
+                canvas.drawCircle(s / 2f, s / 2f, s * 0.31f, p)
+                for (i in 0 until 8) {
+                    canvas.save()
+                    canvas.rotate(i * 45f, s / 2f, s / 2f)
+                    canvas.drawLine(s / 2f, s * 0.1f, s / 2f, s * 0.19f, p)
+                    canvas.restore()
+                }
+            }
+            else -> {
+                canvas.drawRoundRect(RectF(s * 0.36f, s * 0.08f, s * 0.64f, s * 0.58f), s * 0.14f, s * 0.14f, p)
+                canvas.drawArc(RectF(s * 0.22f, s * 0.3f, s * 0.78f, s * 0.78f), 0f, 180f, false, p)
+                canvas.drawLine(s * 0.5f, s * 0.78f, s * 0.5f, s * 0.92f, p)
+            }
+        }
     }
 }
 
@@ -93,29 +150,31 @@ class BackdropView(c: Context) : View(c) {
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     private val cols = intArrayOf(Color.rgb(59, 130, 246), Color.rgb(239, 68, 68), Color.rgb(34, 197, 94),
         Color.rgb(236, 72, 153), Color.rgb(139, 92, 246), Color.rgb(245, 158, 11))
+    private fun mul(c: Int, f: Float) = Color.rgb((Color.red(c) * f).toInt(), (Color.green(c) * f).toInt(), (Color.blue(c) * f).toInt())
     override fun onDraw(canvas: Canvas) {
         val w = width.toFloat()
         val h = height.toFloat()
         val s = w * 0.30f
         val gap = s * 0.22f
+        val limit = h * 0.62f
         canvas.save()
         canvas.rotate(-22f, w / 2, h * 0.2f)
         var i = 0
         var y = -s
-        while (y < h * 0.5f) {
+        while (y < limit) {
             var x = -s
             while (x < w + s) {
-                val fade = 1f - (y / (h * 0.5f)).coerceIn(0f, 1f)
+                val fade = 1f - (y / limit).coerceIn(0f, 1f)
                 val base = cols[i++ % cols.size]
-                val off = s * 0.07f
+                val off = s * 0.08f
+                // নিচের গাঢ় কিনারা
                 p.shader = null
-                p.color = Color.rgb((Color.red(base) * 0.55f).toInt(), (Color.green(base) * 0.55f).toInt(), (Color.blue(base) * 0.55f).toInt())
-                p.alpha = (60 * fade).toInt()
+                p.color = mul(base, 0.28f)
+                p.alpha = (150 * fade).toInt()
                 canvas.drawRoundRect(RectF(x, y + off, x + s, y + s + off), s * 0.22f, s * 0.22f, p)
-                p.shader = LinearGradient(x, y, x, y + s,
-                    Color.rgb(minOf(255, (Color.red(base) * 1.3f).toInt()), minOf(255, (Color.green(base) * 1.3f).toInt()), minOf(255, (Color.blue(base) * 1.3f).toInt())),
-                    base, Shader.TileMode.CLAMP)
-                p.alpha = (56 * fade).toInt()
+                // মূল টাইল
+                p.shader = LinearGradient(x, y, x, y + s, mul(base, 0.75f), mul(base, 0.5f), Shader.TileMode.CLAMP)
+                p.alpha = (150 * fade).toInt()
                 canvas.drawRoundRect(RectF(x, y, x + s, y + s), s * 0.22f, s * 0.22f, p)
                 p.shader = null
                 x += s + gap
@@ -148,6 +207,7 @@ class MainActivity : Activity() {
     private val grey = Color.rgb(151, 169, 198)
     private lateinit var container: FrameLayout
     private lateinit var navItems: List<TextView>
+    private lateinit var navIcons: List<IconView>
     private var tab = 0
     private var inPlayer = false
     private var searchText = ""
@@ -186,22 +246,35 @@ class MainActivity : Activity() {
         root.addView(container, LinearLayout.LayoutParams(-1, 0, 1f))
         val nav = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(Color.rgb(8, 12, 30))
-            elevation = dp(12).toFloat()
-            setPadding(0, dp(8), 0, dp(8))
+            setBackgroundColor(Color.rgb(12, 12, 12))
+            setPadding(0, dp(10), 0, dp(8))
         }
-        val names = listOf("🔍\nDownload", "▶\nPlay", "⚙\nSettings")
+        val names = listOf("Download", "Play", "Settings")
+        val kinds = listOf(1, 2, 3)
         val tabMap = listOf(0, 2, 3)
+        val icons = ArrayList<IconView>()
         navItems = names.mapIndexed { i, n ->
+            val col = LinearLayout(this)
+            col.orientation = LinearLayout.VERTICAL
+            col.gravity = Gravity.CENTER_HORIZONTAL
+            col.setOnClickListener { show(tabMap[i]) }
+            val ic = IconView(this, kinds[i])
+            ic.tint = grey
+            icons.add(ic)
+            col.addView(ic, LinearLayout.LayoutParams(dp(26), dp(26)))
             val t = TextView(this)
             t.text = n
-            t.textSize = 11f
+            t.textSize = 12f
             t.gravity = Gravity.CENTER
             t.setTextColor(grey)
-            t.setOnClickListener { show(tabMap[i]) }
-            nav.addView(t, LinearLayout.LayoutParams(0, -2, 1f))
+            col.addView(t, lp(-2, -2, 3))
+            nav.addView(col, LinearLayout.LayoutParams(0, -2, 1f))
             t
         }
+        navIcons = icons
+        val divider = View(this)
+        divider.setBackgroundColor(Color.argb(70, 151, 169, 198))
+        root.addView(divider, LinearLayout.LayoutParams(-1, dp(1)))
         root.addView(nav, LinearLayout.LayoutParams(-1, -2))
         setContentView(root)
         show(0)
@@ -362,7 +435,10 @@ class MainActivity : Activity() {
         inPlayer = false
         tab = i
         val ni = when (i) { 0, 1 -> 0; 2 -> 1; else -> 2 }
-        navItems.forEachIndexed { k, t -> t.setTextColor(if (k == ni) cyan else grey) }
+        navItems.forEachIndexed { k, t ->
+            t.setTextColor(if (k == ni) white else grey)
+            navIcons[k].tint = if (k == ni) white else grey
+        }
         container.removeAllViews()
         container.addView(when (i) {
             0 -> homeView()
@@ -398,6 +474,7 @@ class MainActivity : Activity() {
     private fun homeView(): View {
         val amber = Color.rgb(255, 196, 30)
         val frame = FrameLayout(this)
+        frame.setBackgroundColor(Color.rgb(12, 12, 12))
         frame.addView(BackdropView(this), FrameLayout.LayoutParams(-1, -1))
         val p = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -455,7 +532,7 @@ class MainActivity : Activity() {
         p.addView(tabsRow, LinearLayout.LayoutParams(-2, -2))
 
         p.addView(View(this), LinearLayout.LayoutParams(-1, 0, 1.3f))
-        p.addView(LogoView(this), LinearLayout.LayoutParams(dp(72), dp(72)))
+        p.addView(LogoView(this), LinearLayout.LayoutParams(dp(84), dp(84)))
         p.addView(tv("AI Video Master", 34f, amber, true).apply {
             gravity = Gravity.CENTER
             setShadowLayer(1f, dp(3).toFloat(), dp(4).toFloat(), Color.rgb(150, 100, 0))
@@ -468,27 +545,37 @@ class MainActivity : Activity() {
             background = rounded(Color.rgb(24, 24, 24), 30, Color.argb(140, 151, 169, 198))
             elevation = dp(10).toFloat()
         }
-        val dlIcon = tv("⬇", 20f, grey)
-        pill.addView(dlIcon)
+        val dlIcon = IconView(this, 0)
+        dlIcon.tint = grey
+        pill.addView(dlIcon, LinearLayout.LayoutParams(dp(26), dp(26)))
         val et = EditText(this).apply {
             hint = "নাম লিখুন বা লিংক পেস্ট করুন…"
             setHintTextColor(Color.rgb(137, 153, 180))
             setTextColor(white)
             textSize = 14f
-            background = null
+            background = rounded(Color.rgb(32, 32, 32), 8, Color.argb(70, 151, 169, 198))
             setSingleLine(true)
             imeOptions = EditorInfo.IME_ACTION_SEARCH
             setPadding(dp(10), dp(10), dp(6), dp(10))
         }
-        pill.addView(et, LinearLayout.LayoutParams(0, -2, 1f))
-        val mic = tv("🎙", 20f, Color.WHITE).apply { gravity = Gravity.CENTER; setPadding(dp(8), 0, dp(10), 0) }
-        pill.addView(mic)
-        val go = tv("⌕", 26f, Color.rgb(20, 20, 20)).apply {
-            gravity = Gravity.CENTER
-            background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(Color.rgb(255, 224, 110), amber)).apply { shape = GradientDrawable.OVAL; setStroke(dp(1), Color.argb(120, 255, 255, 255)) }
-            elevation = dp(8).toFloat()
+        pill.addView(et, LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(10); rightMargin = dp(6) })
+        val mic = IconView(this, 4)
+        mic.tint = Color.WHITE
+        pill.addView(mic, LinearLayout.LayoutParams(dp(24), dp(24)).apply { leftMargin = dp(4); rightMargin = dp(12) })
+        val go = FrameLayout(this)
+        val goEdge = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.rgb(165, 112, 0)) }
+        val goFace = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(Color.rgb(255, 224, 110), amber)).apply {
+            shape = GradientDrawable.OVAL
+            setStroke(dp(1), Color.argb(120, 255, 255, 255))
         }
-        pill.addView(go, LinearLayout.LayoutParams(dp(50), dp(50)))
+        val goLayers = android.graphics.drawable.LayerDrawable(arrayOf<android.graphics.drawable.Drawable>(goEdge, goFace))
+        goLayers.setLayerInset(1, 0, 0, 0, dp(3))
+        go.background = goLayers
+        go.elevation = dp(8).toFloat()
+        val goIcon = IconView(this, 1)
+        goIcon.tint = Color.rgb(20, 20, 20)
+        go.addView(goIcon, FrameLayout.LayoutParams(dp(24), dp(24), Gravity.CENTER).apply { bottomMargin = dp(2) })
+        pill.addView(go, LinearLayout.LayoutParams(dp(52), dp(52)))
         p.addView(pill, lp(-1, -2, 0))
 
         dlIcon.setOnClickListener {
@@ -499,9 +586,37 @@ class MainActivity : Activity() {
         et.setOnEditorActionListener { _, _, _ -> smartGo(et.text.toString()); true }
         go.setOnClickListener { smartGo(et.text.toString()) }
 
+        // সবুজ 3D Download বাটন
+        val dlBtn = LinearLayout(this).apply {
+            gravity = Gravity.CENTER
+            background = buttonBg(Color.rgb(22, 170, 140))
+            setPadding(0, 0, 0, dp(4))
+            elevation = dp(8).toFloat()
+            isClickable = true
+            isFocusable = true
+            setOnTouchListener { v, e ->
+                when (e.action) {
+                    MotionEvent.ACTION_DOWN -> v.animate().translationY(dp(3).toFloat()).setDuration(60).start()
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> v.animate().translationY(0f).setDuration(90).start()
+                }
+                false
+            }
+        }
+        val dlBtnIcon = IconView(this, 0)
+        dlBtnIcon.tint = Color.WHITE
+        dlBtn.addView(dlBtnIcon, LinearLayout.LayoutParams(dp(20), dp(20)).apply { rightMargin = dp(10) })
+        dlBtn.addView(tv("Download", 17f, Color.WHITE, true))
+        dlBtn.setOnClickListener {
+            val t = et.text.toString().trim()
+            if (t.isNotEmpty()) smartGo(t) else {
+                val c = clipboardText()
+                if (c.isEmpty()) toast("লিংক পেস্ট করুন বা নাম লিখুন।") else { et.setText(c); smartGo(c) }
+            }
+        }
+        p.addView(dlBtn, lp(dp(222), dp(48), 22))
+        p.addView(tv("লিংক পেস্ট করে Download চাপুন", 13f, amber).apply { gravity = Gravity.CENTER }, lp(-2, -2, 10))
         srcHint.gravity = Gravity.CENTER
-        p.addView(srcHint, lp(-1, -2, 14))
-        p.addView(tv("⬇ আইকনে ট্যাপ করলে কপি করা লিংক নেয়। লিংক সরাসরি ফাইলের হলে Download বাটন আসে।", 11f, grey).apply { gravity = Gravity.CENTER }, lp(-1, -2, 6))
+        p.addView(srcHint, lp(-1, -2, 8))
         p.addView(View(this), LinearLayout.LayoutParams(-1, 0, 2f))
         styleTabs()
         frame.addView(ScrollView(this).apply { isFillViewport = true; addView(p) }, FrameLayout.LayoutParams(-1, -1))
@@ -774,10 +889,69 @@ class MainActivity : Activity() {
 
     private fun pickQuality(title: String, thumb: String, opts: List<Opt>) {
         if (opts.size == 1) { enqueue(opts[0].url, title, thumb, opts[0].ext); return }
-        AlertDialog.Builder(this)
-            .setTitle("কোন কোয়ালিটি বা ফরম্যাট নামাবেন?")
-            .setItems(opts.map { it.label }.toTypedArray()) { _, w -> enqueue(opts[w].url, title, thumb, opts[w].ext) }
-            .show()
+        val dialog = AlertDialog.Builder(this).create()
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(18), dp(16), dp(14))
+            background = rounded(Color.rgb(18, 18, 18), 22, Color.argb(90, 151, 169, 198))
+        }
+        box.addView(tv("ডাউনলোড কোয়ালিটি বেছে নিন", 18f, white, true))
+        box.addView(tv(title, 12f, grey).apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END }, lp(-1, -2, 3))
+        val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val amber = Color.rgb(255, 196, 30)
+        opts.forEachIndexed { i, o ->
+            val isAudio = audioExts.contains(o.ext)
+            val row = LinearLayout(this).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(12), dp(11), dp(12), dp(11))
+                background = rounded(if (i == 0) Color.rgb(24, 44, 40) else Color.rgb(28, 28, 28), 14,
+                    if (i == 0) Color.argb(160, 22, 170, 140) else Color.argb(60, 151, 169, 198))
+                isClickable = true
+                isFocusable = true
+            }
+            row.addView(IconView(this, if (isAudio) 4 else 2).apply { tint = if (i == 0) Color.rgb(22, 200, 165) else grey },
+                LinearLayout.LayoutParams(dp(24), dp(24)).apply { rightMargin = dp(12) })
+            val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            val hasMb = o.label.contains("MB")
+            col.addView(tv(o.label, 14f, white, true).apply { maxLines = 2 })
+            val sub = tv(o.ext.removePrefix(".").uppercase() + (if (isAudio) "  •  অডিও" else "  •  ভিডিও") +
+                (if (o.size > 0 && !hasMb) String.format(Locale.US, "  •  %.1f MB", o.size / 1048576.0) else ""), 11f, grey)
+            col.addView(sub, lp(-2, -2, 2))
+            row.addView(col, LinearLayout.LayoutParams(0, -2, 1f))
+            val tag = when {
+                i == 0 -> "সেরা"
+                o.pv -> "হালকা"
+                else -> ""
+            }
+            if (tag.isNotEmpty()) {
+                row.addView(tv(tag, 11f, Color.rgb(20, 20, 20), true).apply {
+                    setPadding(dp(8), dp(3), dp(8), dp(3))
+                    background = rounded(if (i == 0) Color.rgb(22, 200, 165) else amber, 10, Color.TRANSPARENT)
+                })
+            }
+            row.setOnClickListener { dialog.dismiss(); enqueue(o.url, title, thumb, o.ext) }
+            list.addView(row, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+            // সাইজ জানা না থাকলে ব্যাকগ্রাউন্ডে বের করা
+            if (o.size <= 0 && !hasMb) Thread {
+                var len = -1L
+                try {
+                    val c = URL(o.url).openConnection() as HttpURLConnection
+                    c.requestMethod = "HEAD"
+                    c.connectTimeout = 8000
+                    c.readTimeout = 8000
+                    len = c.contentLengthLong
+                    c.disconnect()
+                } catch (e: Exception) { }
+                if (len > 0) ui.post { sub.text = sub.text.toString() + String.format(Locale.US, "  •  %.1f MB", len / 1048576.0) }
+            }.start()
+        }
+        box.addView(ScrollView(this).apply { addView(list) }, LinearLayout.LayoutParams(-1, -2))
+        val cancel = tv("বাতিল", 14f, grey, true).apply { gravity = Gravity.CENTER; setPadding(0, dp(12), 0, dp(4)) }
+        cancel.setOnClickListener { dialog.dismiss() }
+        box.addView(cancel, lp(-1, -2, 6))
+        dialog.setView(box)
+        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        dialog.show()
     }
 
     private fun resolveArchiveAudio(id: String): Pair<String, Long>? {
@@ -1427,14 +1601,7 @@ class MainActivity : Activity() {
         typeface = Typeface.DEFAULT_BOLD
         gravity = Gravity.CENTER
         setTextColor(Color.WHITE)
-        val edge = GradientDrawable().apply { setColor(shade(shade(color))); cornerRadius = dp(15).toFloat() }
-        val face = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(lighten(color), color)).apply {
-            cornerRadius = dp(15).toFloat()
-            setStroke(dp(1), Color.argb(70, 255, 255, 255))
-        }
-        val layers = android.graphics.drawable.LayerDrawable(arrayOf<android.graphics.drawable.Drawable>(edge, face))
-        layers.setLayerInset(1, 0, 0, 0, dp(4))
-        background = layers
+        background = buttonBg(color)
         setPadding(0, 0, 0, dp(4))
         elevation = dp(8).toFloat()
         setOnTouchListener { v, e ->
@@ -1446,6 +1613,17 @@ class MainActivity : Activity() {
         }
         isClickable = true
         isFocusable = true
+    }
+
+    private fun buttonBg(color: Int): android.graphics.drawable.Drawable {
+        val edge = GradientDrawable().apply { setColor(shade(shade(color))); cornerRadius = dp(15).toFloat() }
+        val face = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(lighten(color), color)).apply {
+            cornerRadius = dp(15).toFloat()
+            setStroke(dp(1), Color.argb(70, 255, 255, 255))
+        }
+        val layers = android.graphics.drawable.LayerDrawable(arrayOf<android.graphics.drawable.Drawable>(edge, face))
+        layers.setLayerInset(1, 0, 0, 0, dp(4))
+        return layers
     }
 
     private fun lighten(color: Int): Int = Color.rgb(
