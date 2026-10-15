@@ -29,6 +29,7 @@ import android.text.InputType
 import android.text.TextUtils
 import android.util.LruCache
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
@@ -105,9 +106,18 @@ class BackdropView(c: Context) : View(c) {
             var x = -s
             while (x < w + s) {
                 val fade = 1f - (y / (h * 0.5f)).coerceIn(0f, 1f)
-                p.color = cols[i++ % cols.size]
-                p.alpha = (44 * fade).toInt()
+                val base = cols[i++ % cols.size]
+                val off = s * 0.07f
+                p.shader = null
+                p.color = Color.rgb((Color.red(base) * 0.55f).toInt(), (Color.green(base) * 0.55f).toInt(), (Color.blue(base) * 0.55f).toInt())
+                p.alpha = (60 * fade).toInt()
+                canvas.drawRoundRect(RectF(x, y + off, x + s, y + s + off), s * 0.22f, s * 0.22f, p)
+                p.shader = LinearGradient(x, y, x, y + s,
+                    Color.rgb(minOf(255, (Color.red(base) * 1.3f).toInt()), minOf(255, (Color.green(base) * 1.3f).toInt()), minOf(255, (Color.blue(base) * 1.3f).toInt())),
+                    base, Shader.TileMode.CLAMP)
+                p.alpha = (56 * fade).toInt()
                 canvas.drawRoundRect(RectF(x, y, x + s, y + s), s * 0.22f, s * 0.22f, p)
+                p.shader = null
                 x += s + gap
             }
             y += s + gap
@@ -117,13 +127,16 @@ class BackdropView(c: Context) : View(c) {
 }
 
 /** একটি সার্চ ফলাফল। src = archive | commons | nasa | pexels */
+data class Opt(val label: String, val url: String, val size: Long, val ext: String, val pv: Boolean = false)
+
 data class Item(
     val title: String,
     val by: String,
     val thumb: String,
     val src: String,
     val key: String = "",
-    val direct: String = ""
+    val direct: String = "",
+    val opts: List<Opt> = emptyList()
 )
 
 class MainActivity : Activity() {
@@ -174,6 +187,7 @@ class MainActivity : Activity() {
         val nav = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setBackgroundColor(Color.rgb(8, 12, 30))
+            elevation = dp(12).toFloat()
             setPadding(0, dp(8), 0, dp(8))
         }
         val names = listOf("🔍\nDownload", "▶\nPlay", "⚙\nSettings")
@@ -442,13 +456,17 @@ class MainActivity : Activity() {
 
         p.addView(View(this), LinearLayout.LayoutParams(-1, 0, 1.3f))
         p.addView(LogoView(this), LinearLayout.LayoutParams(dp(72), dp(72)))
-        p.addView(tv("AI Video Master", 34f, amber, true).apply { gravity = Gravity.CENTER }, lp(-2, -2, 8))
+        p.addView(tv("AI Video Master", 34f, amber, true).apply {
+            gravity = Gravity.CENTER
+            setShadowLayer(1f, dp(3).toFloat(), dp(4).toFloat(), Color.rgb(150, 100, 0))
+        }, lp(-2, -2, 8))
         p.addView(View(this), LinearLayout.LayoutParams(-1, 0, 0.7f))
 
         val pill = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(14), dp(5), dp(5), dp(5))
             background = rounded(Color.rgb(24, 24, 24), 30, Color.argb(140, 151, 169, 198))
+            elevation = dp(10).toFloat()
         }
         val dlIcon = tv("⬇", 20f, grey)
         pill.addView(dlIcon)
@@ -467,7 +485,8 @@ class MainActivity : Activity() {
         pill.addView(mic)
         val go = tv("⌕", 26f, Color.rgb(20, 20, 20)).apply {
             gravity = Gravity.CENTER
-            background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(amber) }
+            background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(Color.rgb(255, 224, 110), amber)).apply { shape = GradientDrawable.OVAL; setStroke(dp(1), Color.argb(120, 255, 255, 255)) }
+            elevation = dp(8).toFloat()
         }
         pill.addView(go, LinearLayout.LayoutParams(dp(50), dp(50)))
         p.addView(pill, lp(-1, -2, 0))
@@ -679,9 +698,14 @@ class MainActivity : Activity() {
             val mp4 = (0 until files.length()).map { files.getJSONObject(it) }.filter { it.optString("file_type") == "video/mp4" }
             val pick = mp4.filter { it.optInt("width") >= 640 }.minByOrNull { it.optInt("width") }
                 ?: mp4.maxByOrNull { it.optInt("width") } ?: continue
+            val popts = mp4.sortedByDescending { it.optInt("height") }.map { f ->
+                val h = f.optInt("height")
+                val tag = if (h >= 1080) " (Full HD)" else if (h >= 720) " (HD)" else " (SD)"
+                Opt("MP4 • " + f.optInt("width") + "×" + h + tag, f.optString("link"), 0L, ".mp4", f.optString("link") == pick.optString("link"))
+            }
             val slug = v.optString("url").trimEnd('/').substringAfterLast('/').replace('-', ' ')
             out.add(Item(slug.ifEmpty { "Pexels video" }, v.optJSONObject("user")?.optString("name") ?: "Pexels",
-                v.optString("image"), "pexels", "", pick.optString("link")))
+                v.optString("image"), "pexels", "", pick.optString("link"), popts))
         }
         return out
     }
@@ -702,6 +726,58 @@ class MainActivity : Activity() {
             ?: mp4s.minByOrNull { it.optString("size", "0").toLongOrNull() ?: Long.MAX_VALUE } ?: return null
         val size = pick.optString("size", "0").toLongOrNull() ?: 0L
         return Pair("https://archive.org/download/$id/" + Uri.encode(pick.optString("name"), "/"), size)
+    }
+
+    private fun archiveOpts(id: String, exts: List<String>): List<Opt> {
+        val files = JSONObject(httpGet("https://archive.org/metadata/$id")).getJSONArray("files")
+        val list = ArrayList<Opt>()
+        for (i in 0 until files.length()) {
+            val f = files.getJSONObject(i)
+            val name = f.optString("name")
+            val low = name.lowercase(Locale.ROOT)
+            val ext = exts.firstOrNull { low.endsWith(it) } ?: continue
+            val size = f.optString("size", "0").toLongOrNull() ?: 0L
+            val fmt = f.optString("format")
+            val label = ext.removePrefix(".").uppercase() + (if (fmt.isNotEmpty()) " • $fmt" else "") +
+                (if (size > 0) String.format(Locale.US, " • %.1f MB", size / 1048576.0) else "")
+            list.add(Opt(label, "https://archive.org/download/$id/" + Uri.encode(name, "/"), size, ext))
+        }
+        val sorted = list.sortedByDescending { it.size }.take(8)
+        val pv = sorted.filter { it.size > 0 }.minByOrNull { it.size } ?: sorted.firstOrNull()
+        return sorted.map { if (it === pv) it.copy(pv = true) else it }
+    }
+
+    private fun nasaOpts(id: String): List<Opt> {
+        val items = JSONObject(httpGet("https://images-api.nasa.gov/asset/" + Uri.encode(id)))
+            .getJSONObject("collection").getJSONArray("items")
+        val urls = (0 until items.length()).map {
+            items.getJSONObject(it).optString("href").replace("http://", "https://").replace(" ", "%20")
+        }.filter { it.lowercase(Locale.ROOT).endsWith(".mp4") }
+        val order = listOf("orig", "large", "medium", "small", "mobile")
+        val names = mapOf("orig" to "Original (সবচেয়ে বড়)", "large" to "Large", "medium" to "Medium", "small" to "Small", "mobile" to "Mobile (ছোট)")
+        val tagged = urls.map { u ->
+            val tag = Regex("~([a-z]+)\\.mp4", RegexOption.IGNORE_CASE).find(u)?.groupValues?.get(1)?.lowercase(Locale.ROOT) ?: "video"
+            Pair(tag, u)
+        }.sortedBy { val k = order.indexOf(it.first); if (k < 0) 99 else k }
+        val pvTag = listOf("medium", "small", "mobile").firstOrNull { t -> tagged.any { it.first == t } } ?: tagged.firstOrNull()?.first
+        return tagged.map { Opt("MP4 • " + (names[it.first] ?: it.first), it.second, 0L, ".mp4", it.first == pvTag) }
+    }
+
+    private fun resolveAll(item: Item): List<Opt> = when (item.src) {
+        "archive" -> archiveOpts(item.key, listOf(".mp4", ".webm", ".mkv", ".ogv"))
+        "archiveaudio" -> archiveOpts(item.key, listOf(".mp3", ".ogg", ".m4a", ".flac"))
+        "nasa" -> nasaOpts(item.key)
+        else -> if (item.opts.isNotEmpty()) item.opts
+            else if (item.direct.isEmpty()) emptyList()
+            else listOf(Opt("ভিডিও", item.direct, 0L, mediaExt(item.direct) ?: ".mp4", true))
+    }
+
+    private fun pickQuality(title: String, thumb: String, opts: List<Opt>) {
+        if (opts.size == 1) { enqueue(opts[0].url, title, thumb, opts[0].ext); return }
+        AlertDialog.Builder(this)
+            .setTitle("কোন কোয়ালিটি বা ফরম্যাট নামাবেন?")
+            .setItems(opts.map { it.label }.toTypedArray()) { _, w -> enqueue(opts[w].url, title, thumb, opts[w].ext) }
+            .show()
     }
 
     private fun resolveArchiveAudio(id: String): Pair<String, Long>? {
@@ -747,7 +823,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             background = rounded(panel, 18)
             setPadding(dp(8), dp(8), dp(8), dp(12))
-            elevation = dp(4).toFloat()
+            elevation = dp(8).toFloat()
             isClickable = true
         }
         val fl = FrameLayout(this)
@@ -812,15 +888,15 @@ class MainActivity : Activity() {
             dlBtn.setOnClickListener { toast("ফাইল খোঁজা হচ্ছে, একটু অপেক্ষা করুন।") }
             Thread {
                 try {
-                    val r = resolve(item)
-                    if (r == null) {
+                    val opts = resolveAll(item)
+                    if (opts.isEmpty()) {
                         ui.post { msg.text = "এই আইটেমে প্লে করার মতো MP4/WEBM ফাইল নেই।" }
                     } else {
                         ui.post {
                             if (inPlayer && video === vv) {
-                                play(Uri.parse(r.first))
-                                dlBtn.text = "⬇   Download" + (if (r.second > 0) " (" + String.format(Locale.US, "%.1f MB", r.second / 1048576.0) + ")" else "")
-                                dlBtn.setOnClickListener { enqueue(r.first, title, item.thumb) }
+                                play(Uri.parse((opts.firstOrNull { it.pv } ?: opts[0]).url))
+                                dlBtn.text = "⬇   Download" + (if (opts.size > 1) "  (" + opts.size + "টি কোয়ালিটি/ফরম্যাট)" else "")
+                                dlBtn.setOnClickListener { pickQuality(title, item.thumb, opts) }
                             }
                         }
                     }
@@ -1033,6 +1109,7 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
             background = rounded(panel, 16)
             setPadding(dp(10), dp(10), dp(12), dp(10))
+            elevation = dp(6).toFloat()
         }
         val iv = ImageView(this)
         iv.scaleType = ImageView.ScaleType.CENTER_CROP
@@ -1350,11 +1427,31 @@ class MainActivity : Activity() {
         typeface = Typeface.DEFAULT_BOLD
         gravity = Gravity.CENTER
         setTextColor(Color.WHITE)
-        background = gradient(intArrayOf(color, shade(color)), 15)
-        elevation = dp(6).toFloat()
+        val edge = GradientDrawable().apply { setColor(shade(shade(color))); cornerRadius = dp(15).toFloat() }
+        val face = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(lighten(color), color)).apply {
+            cornerRadius = dp(15).toFloat()
+            setStroke(dp(1), Color.argb(70, 255, 255, 255))
+        }
+        val layers = android.graphics.drawable.LayerDrawable(arrayOf<android.graphics.drawable.Drawable>(edge, face))
+        layers.setLayerInset(1, 0, 0, 0, dp(4))
+        background = layers
+        setPadding(0, 0, 0, dp(4))
+        elevation = dp(8).toFloat()
+        setOnTouchListener { v, e ->
+            when (e.action) {
+                MotionEvent.ACTION_DOWN -> v.animate().translationY(dp(3).toFloat()).setDuration(60).start()
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> v.animate().translationY(0f).setDuration(90).start()
+            }
+            false
+        }
         isClickable = true
         isFocusable = true
     }
+
+    private fun lighten(color: Int): Int = Color.rgb(
+        minOf(255, (Color.red(color) * 1.3).toInt() + 20),
+        minOf(255, (Color.green(color) * 1.3).toInt() + 20),
+        minOf(255, (Color.blue(color) * 1.3).toInt() + 20))
 
     private fun shade(color: Int): Int =
         Color.rgb((Color.red(color) * 0.65).toInt(), (Color.green(color) * 0.65).toInt(), (Color.blue(color) * 0.75).toInt())
