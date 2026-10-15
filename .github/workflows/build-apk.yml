@@ -22,7 +22,6 @@ jobs:
           [ -f AndroidManifest.xml ] && mv AndroidManifest.xml app/src/main/AndroidManifest.xml
           [ -f MainActivity.kt ] && mv MainActivity.kt app/src/main/java/com/aivideomaster/app/MainActivity.kt
           [ -f styles.xml ] && mv styles.xml app/src/main/res/values/styles.xml
-          find . -path ./.git -prune -o -type f -print | sort
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -30,11 +29,11 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK packages
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Accept licenses and install Android SDK
+        run: |
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" "platforms;android-35" "build-tools;35.0.0" > /dev/null || true
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
