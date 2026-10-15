@@ -15,6 +15,15 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Arrange files into folders
+        run: |
+          mkdir -p app/src/main/java/com/aivideomaster/app app/src/main/res/values
+          [ -f app_build.gradle ] && mv app_build.gradle app/build.gradle
+          [ -f AndroidManifest.xml ] && mv AndroidManifest.xml app/src/main/AndroidManifest.xml
+          [ -f MainActivity.kt ] && mv MainActivity.kt app/src/main/java/com/aivideomaster/app/MainActivity.kt
+          [ -f styles.xml ] && mv styles.xml app/src/main/res/values/styles.xml
+          find . -path ./.git -prune -o -type f -print | sort
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
